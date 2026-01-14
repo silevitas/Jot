@@ -1,31 +1,46 @@
 //
 //  AppDelegate.swift
-//  Snip
+//  Jot
 //
-//  Created by Rainer Selvet on 21/03/2020.
+//  Updated for SwiftUI and Swift 6
 //
 
-import Cocoa
+import SwiftUI
 
-@NSApplicationMain
-class AppDelegate: NSObject, NSApplicationDelegate {
-
-    let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-    let popover = NSPopover()
-
-    func applicationDidFinishLaunching(_ aNotification: Notification) {
-        if let button = statusItem.button {
-            button.image = NSImage(named:NSImage.Name("StatusBarButtonImage"))
-            button.action = #selector(togglePopover(_:))
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    
+    private var statusItem: NSStatusItem?
+    private var popover: NSPopover?
+    
+    nonisolated func applicationDidFinishLaunching(_ aNotification: Notification) {
+        Task { @MainActor in
+            setupMenuBar()
         }
-        popover.contentViewController = JotViewController.freshController()
     }
-
-    func applicationWillTerminate(_ aNotification: Notification) {
+    
+    private func setupMenuBar() {
+        // Create status item
+        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        self.statusItem = statusItem
         
+        if let button = statusItem.button {
+            button.image = NSImage(named: "StatusBarButtonImage")
+            button.action = #selector(togglePopover(_:))
+            button.target = self
+        }
+        
+        // Create popover with SwiftUI view
+        let popover = NSPopover()
+        popover.contentSize = NSSize(width: 300, height: 400)
+        popover.behavior = .transient
+        popover.contentViewController = NSHostingController(rootView: JotView())
+        self.popover = popover
     }
-
-    @objc func togglePopover(_ sender: Any?) {
+    
+    @objc private func togglePopover(_ sender: Any?) {
+        guard let popover = popover else { return }
+        
         if popover.isShown {
             closePopover(sender: sender)
         } else {
@@ -33,15 +48,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
-    func showPopover(sender: Any?) {
-        if let button = statusItem.button {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: NSRectEdge.minY)
-        }
+    private func showPopover(sender: Any?) {
+        guard let popover = popover,
+              let button = statusItem?.button else { return }
+        
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
     
-    func closePopover(sender: Any?) {
-        popover.performClose(sender)
+    private func closePopover(sender: Any?) {
+        popover?.performClose(sender)
     }
-
 }
+
+extension AppDelegate: Sendable {}
 
